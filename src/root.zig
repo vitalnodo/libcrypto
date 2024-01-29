@@ -17,6 +17,13 @@ pub const ciphers = struct {
     };
 };
 
+const ripemd160_main = @import("hash/ripemd/ripemd160.zig");
+pub const hash = struct {
+    pub const ripemd = struct {
+        pub const ripemd160 = ripemd160_main.Ripemd160;
+    };
+};
+
 test {
     _ = ciphers.twofish.Twofish256;
     _ = ciphers.twofish.TwofishEncryptCtx;
@@ -26,6 +33,8 @@ test {
     _ = ciphers.serpent.Serpent256;
     _ = ciphers.serpent.SerpentEncryptCtx;
     _ = ciphers.serpent.SerpentDecryptCtx;
+
+    _ = ripemd160_main.Ripemd160;
 }
 
 test {
