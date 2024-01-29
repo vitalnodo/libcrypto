@@ -26,6 +26,11 @@ pub const hash = struct {
     pub const whirlpool = whirlpool_main.Whirlpool;
 };
 
+const xts_main = @import("modes/xts/main.zig");
+pub const modes = struct {
+    pub const xts = xts_main.XTS;
+};
+
 test {
     _ = ciphers.twofish.Twofish256;
     _ = ciphers.twofish.TwofishEncryptCtx;
@@ -38,6 +43,8 @@ test {
 
     _ = hash.ripemd.ripemd160;
     _ = hash.whirlpool;
+
+    _ = modes.xts;
 }
 
 test {
