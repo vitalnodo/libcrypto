@@ -18,10 +18,12 @@ pub const ciphers = struct {
 };
 
 const ripemd160_main = @import("hash/ripemd/ripemd160.zig");
+const whirlpool_main = @import("hash/whirlpool/whirlpool.zig");
 pub const hash = struct {
     pub const ripemd = struct {
         pub const ripemd160 = ripemd160_main.Ripemd160;
     };
+    pub const whirlpool = whirlpool_main.Whirlpool;
 };
 
 test {
@@ -34,7 +36,8 @@ test {
     _ = ciphers.serpent.SerpentEncryptCtx;
     _ = ciphers.serpent.SerpentDecryptCtx;
 
-    _ = ripemd160_main.Ripemd160;
+    _ = hash.ripemd.ripemd160;
+    _ = hash.whirlpool;
 }
 
 test {
