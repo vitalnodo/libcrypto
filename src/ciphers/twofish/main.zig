@@ -48,9 +48,9 @@ pub fn TwofishEncryptCtx(comptime Twofish: type) type {
         K: [40]u32 = undefined,
         S: [4]u32 = undefined,
 
-        pub fn init(key: []const u8) Self {
+        pub fn init(key: [Twofish.key_bits / 8]u8) Self {
             var self = Self{};
-            keySchedule(Twofish.key_bits, key, &self.K, &self.S);
+            keySchedule(Twofish.key_bits, &key, &self.K, &self.S);
             return self;
         }
 
@@ -96,9 +96,9 @@ pub fn TwofishDecryptCtx(comptime Twofish: type) type {
         K: [40]u32 = undefined,
         S: [4]u32 = undefined,
 
-        pub fn init(key: []const u8) Self {
+        pub fn init(key: [Twofish.key_bits / 8]u8) Self {
             var self = Self{};
-            keySchedule(Twofish.key_bits, key, &self.K, &self.S);
+            keySchedule(Twofish.key_bits, &key, &self.K, &self.S);
             return self;
         }
 
@@ -261,11 +261,11 @@ test {
     _ = try std.fmt.hexToBytes(&key, "248A7F3528B168ACFDD1386E3F51E30C2E2158BC3E5FC714C1EEECA0EA696D48");
     var msg: [16]u8 = undefined;
     _ = try std.fmt.hexToBytes(&msg, "431058F4DBC7F734DA4F02F04CC4F459");
-    const se = TwofishEncryptCtx(Twofish256).init(&key);
+    const te = TwofishEncryptCtx(Twofish256).init(key);
     var encrypted: [16]u8 = undefined;
-    se.encrypt(&encrypted, msg[0..]);
+    te.encrypt(&encrypted, msg[0..]);
     var decrypted: [16]u8 = undefined;
-    const sd = TwofishDecryptCtx(Twofish256).init(&key);
-    sd.decrypt(&decrypted, encrypted[0..]);
+    const td = TwofishDecryptCtx(Twofish256).init(key);
+    td.decrypt(&decrypted, encrypted[0..]);
     try testing.expectEqualSlices(u8, &msg, &decrypted);
 }

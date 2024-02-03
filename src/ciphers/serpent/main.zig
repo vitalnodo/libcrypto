@@ -99,8 +99,8 @@ pub fn SerpentEncryptCtx(comptime Serpent: type) type {
         pub const block_length = block.block_length;
         round_keys: RoundKeys,
 
-        pub fn init(key: []const u8) Self {
-            return .{ .round_keys = keySchedule(key) };
+        pub fn init(key: [Serpent.key_bits / 8]u8) Self {
+            return .{ .round_keys = keySchedule(&key) };
         }
 
         pub fn encrypt(ctx: Self, dst: *[16]u8, src: *const [16]u8) void {
@@ -132,8 +132,8 @@ pub fn SerpentDecryptCtx(comptime Serpent: type) type {
         pub const block_length = block.block_length;
         round_keys: RoundKeys,
 
-        pub fn init(key: []const u8) Self {
-            return .{ .round_keys = keySchedule(key) };
+        pub fn init(key: [Serpent.key_bits / 8]u8) Self {
+            return .{ .round_keys = keySchedule(&key) };
         }
 
         pub fn decrypt(ctx: Self, dst: *[16]u8, src: *const [16]u8) void {
@@ -276,12 +276,12 @@ test "128-bit keys" {
         var v_cipher: [16]u8 = undefined;
         _ = try hexToBytes(&v_cipher, vector.cipher);
 
-        const se = SerpentEncryptCtx(Serpent128).init(&v_key);
+        const se = SerpentEncryptCtx(Serpent128).init(v_key);
         var cipher_res: [16]u8 = undefined;
         se.encrypt(&cipher_res, &v_plain);
         try testing.expectEqualSlices(u8, &v_cipher, &cipher_res);
 
-        const sd = SerpentDecryptCtx(Serpent128).init(&v_key);
+        const sd = SerpentDecryptCtx(Serpent128).init(v_key);
         var plain_res: [16]u8 = undefined;
         sd.decrypt(&plain_res, &v_cipher);
         try testing.expectEqualSlices(u8, &v_plain, &plain_res);
@@ -311,12 +311,12 @@ test "256-bit keys" {
         var v_cipher: [16]u8 = undefined;
         _ = try hexToBytes(&v_cipher, vector.cipher);
 
-        const se = SerpentEncryptCtx(Serpent256).init(&v_key);
+        const se = SerpentEncryptCtx(Serpent256).init(v_key);
         var cipher_res: [16]u8 = undefined;
         se.encrypt(&cipher_res, &v_plain);
         try testing.expectEqualSlices(u8, &v_cipher, &cipher_res);
 
-        const sd = SerpentDecryptCtx(Serpent256).init(&v_key);
+        const sd = SerpentDecryptCtx(Serpent256).init(v_key);
         var plain_res: [16]u8 = undefined;
         sd.decrypt(&plain_res, &v_cipher);
         try testing.expectEqualSlices(u8, &v_plain, &plain_res);
