@@ -55,11 +55,13 @@ pub fn TwofishEncryptCtx(comptime Twofish: type) type {
         }
 
         pub fn encrypt(ctx: Self, dst: *[16]u8, src: *const [16]u8) void {
+            const k = Twofish.key_bits / 64;
             var b: Block = Block.fromBytes(src);
             const R = &b.repr;
             b = b.xor(Block{ .repr = ctx.K[0..4].* });
             for (0..utils.rounds - 1) |r| {
                 const F = F_function(
+                    k,
                     R[0],
                     R[1],
                     r,
@@ -74,6 +76,7 @@ pub fn TwofishEncryptCtx(comptime Twofish: type) type {
                 R[3] = R_old[1];
             }
             const F = F_function(
+                k,
                 R[0],
                 R[1],
                 15,
@@ -103,11 +106,13 @@ pub fn TwofishDecryptCtx(comptime Twofish: type) type {
         }
 
         pub fn decrypt(ctx: Self, dst: *[16]u8, src: *const [16]u8) void {
+            const k = Twofish.key_bits / 64;
             var b: Block = Block.fromBytes(src);
             const R = &b.repr;
             b = b.xor(Block{ .repr = ctx.K[4..8].* });
             for (0..utils.rounds - 1) |r| {
                 const F = F_function(
+                    k,
                     R[0],
                     R[1],
                     15 - r,
@@ -124,6 +129,7 @@ pub fn TwofishDecryptCtx(comptime Twofish: type) type {
                 R[3] = R_old[1];
             }
             const F = F_function(
+                k,
                 R[0],
                 R[1],
                 0,
@@ -196,7 +202,7 @@ fn h(comptime k: usize, X: u32, L: [k]u32) u32 {
         std.mem.writeInt(u32, &l[l_i], L[l_i], .little);
     }
 
-    var x: [k]u8 = undefined;
+    var x: [4]u8 = undefined;
     std.mem.writeInt(u32, &x, X, .little);
 
     var y: [k + 1][4]u8 = undefined;
@@ -241,8 +247,15 @@ fn h(comptime k: usize, X: u32, L: [k]u32) u32 {
     return Z;
 }
 
-pub fn F_function(R0: u32, R1: u32, r: usize, K: [40]u32, S: [4]u32) [2]u32 {
-    const k = 4;
+pub fn F_function(
+    comptime k: usize,
+    R0: u32,
+    R1: u32,
+    r: usize,
+    K: [40]u32,
+    S_: [4]u32,
+) [2]u32 {
+    const S = S_[S_.len - k ..].*;
     const T0 = h(k, R0, S); // g
     const T1 = h(k, std.math.rotl(u32, R1, 8), S);
     const F0 = T0 +% T1 +% K[2 * r + 8];
@@ -250,11 +263,35 @@ pub fn F_function(R0: u32, R1: u32, r: usize, K: [40]u32, S: [4]u32) [2]u32 {
     return .{ F0, F1 };
 }
 
+pub const Twofish128 = struct {
+    pub const key_bits = 128;
+    pub const rounds = 16;
+    pub const block = Block;
+};
+
 pub const Twofish256 = struct {
     pub const key_bits = 256;
     pub const rounds = 16;
     pub const block = Block;
 };
+
+test "twofish128" {
+    // I=7
+    var key: [16]u8 = undefined;
+    _ = try std.fmt.hexToBytes(&key, "816D5BD0FAE35342BF2A7412C246F752");
+    var msg: [16]u8 = undefined;
+    _ = try std.fmt.hexToBytes(&msg, "5449ECA008FF5921155F598AF4CED4D0");
+    var expected_encrypted: [16]u8 = undefined;
+    _ = try std.fmt.hexToBytes(&expected_encrypted, "6600522E97AEB3094ED5F92AFCBCDD10");
+    const te = TwofishEncryptCtx(Twofish128).init(key);
+    var encrypted: [16]u8 = undefined;
+    te.encrypt(&encrypted, msg[0..]);
+    try testing.expectEqualSlices(u8, &expected_encrypted, &encrypted);
+    var decrypted: [16]u8 = undefined;
+    const td = TwofishDecryptCtx(Twofish128).init(key);
+    td.decrypt(&decrypted, encrypted[0..]);
+    try testing.expectEqualSlices(u8, &msg, &decrypted);
+}
 
 test {
     var key: [32]u8 = undefined;

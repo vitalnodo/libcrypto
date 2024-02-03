@@ -5,6 +5,7 @@ const twofish_main = @import("ciphers/twofish/main.zig");
 const serpent_main = @import("ciphers/serpent/main.zig");
 pub const ciphers = struct {
     pub const twofish = struct {
+        pub const Twofish128 = twofish_main.Twofish128;
         pub const Twofish256 = twofish_main.Twofish256;
         pub const TwofishEncryptCtx = twofish_main.TwofishEncryptCtx;
         pub const TwofishDecryptCtx = twofish_main.TwofishDecryptCtx;
@@ -32,6 +33,7 @@ pub const modes = struct {
 };
 
 test {
+    _ = ciphers.twofish.Twofish128;
     _ = ciphers.twofish.Twofish256;
     _ = ciphers.twofish.TwofishEncryptCtx;
     _ = ciphers.twofish.TwofishDecryptCtx;
