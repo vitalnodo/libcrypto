@@ -53,7 +53,8 @@ const sbox = block: {
     }
     break :block result;
 };
-const round_constants = block: {
+
+fn generate_round_constants() [10]u64 {
     var table: [11]u64 = undefined;
     table[0] = 0;
     for (1..11) |r| {
@@ -68,8 +69,11 @@ const round_constants = block: {
             (sbox[6][i + 6] & 0x000000000000ff00) ^
             (sbox[7][i + 7] & 0x00000000000000ff);
     }
-    break :block table[1..];
-};
+    return table[1..].*;
+}
+
+const ROUND_CONSTANTS = generate_round_constants();
+
 inline fn blockFromBytes(bytes: *const [64]u8) [8]u64 {
     var block: [8]u64 = undefined;
     block[0] = mem.readInt(u64, bytes[0..8], .big);
@@ -145,7 +149,7 @@ pub const Whirlpool = struct {
             for (0..8) |j| {
                 K[m ^ 1][j] = whirlpoolOperation(K[m], j);
             }
-            K[m ^ 1][0] ^= round_constants[i];
+            K[m ^ 1][0] ^= ROUND_CONSTANTS[i];
 
             for (0..8) |j| {
                 state[m ^ 1][j] = whirlpoolOperation(
