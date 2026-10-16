@@ -54,7 +54,13 @@ pub fn TwofishEncryptCtx(comptime Twofish: type) type {
             return self;
         }
 
-        pub fn encrypt(ctx: Self, dst: *[16]u8, src: *const [16]u8) void {
+        /// Zero the key schedule.
+        pub fn deinit(self: *Self) void {
+            std.crypto.secureZero(u32, &self.K);
+            std.crypto.secureZero(u32, &self.S);
+        }
+
+        pub fn encrypt(ctx: *const Self, dst: *[16]u8, src: *const [16]u8) void {
             const k = Twofish.key_bits / 64;
             var b: Block = Block.fromBytes(src);
             const R = &b.repr;
@@ -65,8 +71,8 @@ pub fn TwofishEncryptCtx(comptime Twofish: type) type {
                     R[0],
                     R[1],
                     r,
-                    ctx.K,
-                    ctx.S,
+                    &ctx.K,
+                    &ctx.S,
                 );
                 var R_old: [4]u32 = undefined;
                 @memcpy(&R_old, R);
@@ -80,8 +86,8 @@ pub fn TwofishEncryptCtx(comptime Twofish: type) type {
                 R[0],
                 R[1],
                 15,
-                ctx.K,
-                ctx.S,
+                &ctx.K,
+                &ctx.S,
             );
             R[2] = std.math.rotr(u32, R[2] ^ F[0], 1);
             R[3] = std.math.rotl(u32, R[3], 1) ^ F[1];
@@ -105,7 +111,13 @@ pub fn TwofishDecryptCtx(comptime Twofish: type) type {
             return self;
         }
 
-        pub fn decrypt(ctx: Self, dst: *[16]u8, src: *const [16]u8) void {
+        /// Zero the key schedule.
+        pub fn deinit(self: *Self) void {
+            std.crypto.secureZero(u32, &self.K);
+            std.crypto.secureZero(u32, &self.S);
+        }
+
+        pub fn decrypt(ctx: *const Self, dst: *[16]u8, src: *const [16]u8) void {
             const k = Twofish.key_bits / 64;
             var b: Block = Block.fromBytes(src);
             const R = &b.repr;
@@ -116,8 +128,8 @@ pub fn TwofishDecryptCtx(comptime Twofish: type) type {
                     R[0],
                     R[1],
                     15 - r,
-                    ctx.K,
-                    ctx.S,
+                    &ctx.K,
+                    &ctx.S,
                 );
                 var R_old: [4]u32 = undefined;
                 @memcpy(&R_old, R);
@@ -133,8 +145,8 @@ pub fn TwofishDecryptCtx(comptime Twofish: type) type {
                 R[0],
                 R[1],
                 0,
-                ctx.K,
-                ctx.S,
+                &ctx.K,
+                &ctx.S,
             );
             R[2] = std.math.rotl(u32, R[2], 1) ^ F[0];
             R[3] = std.math.rotr(u32, R[3] ^ F[1], 1);
@@ -147,10 +159,12 @@ pub fn TwofishDecryptCtx(comptime Twofish: type) type {
 fn keySchedule(comptime N: u10, key: []const u8, K: *[40]u32, S: *[4]u32) void {
     assert(N == 128 or N == 192 or N == 256);
     var M: [N / 8]u8 = undefined;
+    defer std.crypto.secureZero(u8, &M);
     @memset(&M, 0);
     @memcpy(M[0..key.len], key);
     const k = N / 64;
     var Mi: [2 * k]u32 = undefined;
+    defer std.crypto.secureZero(u32, &Mi);
     for (0..Mi.len) |i| {
         var tmp: u32 = 0;
         for (0..4) |j| {
@@ -159,6 +173,8 @@ fn keySchedule(comptime N: u10, key: []const u8, K: *[40]u32, S: *[4]u32) void {
         Mi[i] = tmp;
     }
     var Me: [k]u32, var Mo: [k]u32 = .{ undefined, undefined };
+    defer std.crypto.secureZero(u32, &Me);
+    defer std.crypto.secureZero(u32, &Mo);
     var c1: usize, var c2: usize = .{ 0, 1 };
     for (0..k) |n| {
         Me[n] = Mi[c1];
@@ -252,8 +268,8 @@ pub fn F_function(
     R0: u32,
     R1: u32,
     r: usize,
-    K: [40]u32,
-    S_: [4]u32,
+    K: *const [40]u32,
+    S_: *const [4]u32,
 ) [2]u32 {
     const S = S_[S_.len - k ..].*;
     const T0 = h(k, R0, S); // g
@@ -305,4 +321,14 @@ test {
     const td = TwofishDecryptCtx(Twofish256).init(key);
     td.decrypt(&decrypted, encrypted[0..]);
     try testing.expectEqualSlices(u8, &msg, &decrypted);
+}
+
+test "deinit zeroes the key schedule" {
+    const key: [32]u8 = @splat(0x5c);
+    var e = TwofishEncryptCtx(Twofish256).init(key);
+    var d = TwofishDecryptCtx(Twofish256).init(key);
+    e.deinit();
+    d.deinit();
+    try testing.expect(std.mem.allEqual(u8, std.mem.asBytes(&e), 0));
+    try testing.expect(std.mem.allEqual(u8, std.mem.asBytes(&d), 0));
 }
