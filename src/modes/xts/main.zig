@@ -11,16 +11,21 @@ pub fn XTS(
 ) type {
     const BLK = EncryptCtx(BlockCipher).block_length;
     const key_bits = BlockCipher.key_bits;
+    if (key_bits != 128 and key_bits != 256) {
+        @compileError("XTS supports only 128-bit and 256-bit keys");
+    }
 
     return struct {
         const Self = @This();
+        pub const key_length = key_bits / 8 * 2;
+        pub const Error = error{InvalidLength};
+
         enc_ecb: EncryptCtx(BlockCipher),
         dec_ecb: DecryptCtx(BlockCipher),
         enc_tweak: EncryptCtx(BlockCipher),
 
-        pub fn init(key: []const u8) Self {
-            std.debug.assert(key_bits == 128 or key_bits == 256);
-            std.debug.assert(key.len == key_bits / 8 * 2);
+        pub fn init(key: []const u8) Error!Self {
+            if (key.len != key_length) return error.InvalidLength;
             const middle = key_bits / 8;
             const enc_ecb = EncryptCtx(BlockCipher).init(key[0..middle].*);
             const dec_ecb = DecryptCtx(BlockCipher).init(key[0..middle].*);
@@ -84,7 +89,8 @@ pub fn XTS(
             dst: []u8,
             src: []const u8,
             IV: []const u8,
-        ) void {
+        ) Error!void {
+            try checkLengths(dst, src, IV);
             const len = src.len;
             var tweak: [BLK]u8 = self.initTweak(IV);
             var i: usize = 0;
@@ -139,7 +145,8 @@ pub fn XTS(
             dst: []u8,
             src: []const u8,
             IV: []const u8,
-        ) void {
+        ) Error!void {
+            try checkLengths(dst, src, IV);
             const len = src.len;
             var tweak: [BLK]u8 = self.initTweak(IV);
             var i: usize = 0;
@@ -187,6 +194,13 @@ pub fn XTS(
                     &stealing,
                     &previous_tweak,
                 );
+            }
+        }
+
+        fn checkLengths(dst: []u8, src: []const u8, IV: []const u8) Error!void {
+            // XTS needs at least one full block; shorter data can't be stolen from
+            if (src.len < BLK or dst.len != src.len or IV.len > BLK) {
+                return error.InvalidLength;
             }
         }
 
@@ -285,10 +299,34 @@ test "AES128" {
         const len = (try std.fmt.hexToBytes(&src, tests[i].src)).len;
         var res_encrypted: [1025]u8 = undefined;
         var res_decrypted: [1025]u8 = undefined;
-        var x = X.init(&key);
-        x.encrypt(res_encrypted[0..len], src[0..len], iv[0..iv_len]);
+        var x = try X.init(&key);
+        try x.encrypt(res_encrypted[0..len], src[0..len], iv[0..iv_len]);
         try testing.expectEqualSlices(u8, dst[0..len], res_encrypted[0..len]);
-        x.decrypt(res_decrypted[0..len], dst[0..len], iv[0..iv_len]);
+        try x.decrypt(res_decrypted[0..len], dst[0..len], iv[0..iv_len]);
         try testing.expectEqualSlices(u8, src[0..len], res_decrypted[0..len]);
     }
+}
+
+test "invalid lengths" {
+    const X = XTS(aes.Aes128, aes.AesEncryptCtx, aes.AesDecryptCtx);
+    const key: [X.key_length]u8 = @splat(0);
+    var buf: [32]u8 = @splat(0);
+    var out: [32]u8 = undefined;
+    const iv: [16]u8 = @splat(0);
+
+    try testing.expectError(error.InvalidLength, X.init(key[0..31]));
+    try testing.expectError(error.InvalidLength, X.init(&([_]u8{0} ++ key)));
+
+    const x = try X.init(&key);
+    // shorter than one block, including empty input
+    try testing.expectError(error.InvalidLength, x.encrypt(out[0..15], buf[0..15], &iv));
+    try testing.expectError(error.InvalidLength, x.decrypt(out[0..0], buf[0..0], &iv));
+    // dst and src of different lengths
+    try testing.expectError(error.InvalidLength, x.encrypt(out[0..16], buf[0..32], &iv));
+    try testing.expectError(error.InvalidLength, x.decrypt(out[0..32], buf[0..16], &iv));
+    // IV longer than a block
+    const long_iv: [17]u8 = @splat(0);
+    try testing.expectError(error.InvalidLength, x.encrypt(&out, &buf, &long_iv));
+    // exactly one block is fine
+    try x.encrypt(out[0..16], buf[0..16], &iv);
 }
