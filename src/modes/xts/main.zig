@@ -29,11 +29,14 @@ pub fn XTS(
         pub fn init(key: []const u8) Error!Self {
             if (key.len != key_length) return error.InvalidLength;
             const middle = key_bits / 8;
-            const enc_ecb = EncryptCtx(BlockCipher).init(key[0..middle].*);
-            const dec_ecb = DecryptCtx(BlockCipher).init(key[0..middle].*);
-            const enc_tweak = EncryptCtx(BlockCipher).init(
-                key[middle .. middle * 2].*,
-            );
+            // Explicit copies so they can be wiped, temporaries would stay on the stack
+            var key1: [middle]u8 = key[0..middle].*;
+            defer std.crypto.secureZero(u8, &key1);
+            var key2: [middle]u8 = key[middle .. middle * 2].*;
+            defer std.crypto.secureZero(u8, &key2);
+            const enc_ecb = EncryptCtx(BlockCipher).init(key1);
+            const dec_ecb = DecryptCtx(BlockCipher).init(key1);
+            const enc_tweak = EncryptCtx(BlockCipher).init(key2);
             return .{
                 .enc_ecb = enc_ecb,
                 .dec_ecb = dec_ecb,
