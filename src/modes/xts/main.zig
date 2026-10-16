@@ -117,6 +117,9 @@ pub fn XTS(
                 // b) Cm ← empty
                 // nothing
             } else {
+                // Save P_m before dst is written, src and dst may be the same buffer
+                var stealing: [BLK]u8 = undefined;
+                @memcpy(stealing[0..rem], src[len - rem .. len]);
                 // a) CC ← XTS-AES-blockEnc(Key, Pm–1, i, m–1)
                 self.encryptBlock(
                     dst[i .. i + BLK],
@@ -128,8 +131,6 @@ pub fn XTS(
                 // c) CP ← last (128–b) bits of CC
                 const last = dst[i .. i + BLK][rem..];
                 // d) PP ← Pm | CP
-                var stealing: [BLK]u8 = undefined;
-                @memcpy(stealing[0..rem], src[len - rem .. len]);
                 @memcpy(stealing[rem..], last);
                 // e) C_{m–1} ← XTS-AES-blockEnc(Key, PP, i, m)
                 self.encryptBlock(
@@ -173,6 +174,9 @@ pub fn XTS(
                 // c) P_m ← empty
                 // nothing
             } else {
+                // Save C_m before dst is written, src and dst may be the same buffer
+                var stealing: [BLK]u8 = undefined;
+                @memcpy(stealing[0..rem], src[len - rem .. len]);
                 var previous_tweak = tweak;
                 mul2(&tweak);
                 self.decryptBlock(
@@ -185,8 +189,6 @@ pub fn XTS(
                 // f) CP ← last (128-b) bits of PP
                 const last = dst[i .. i + BLK][rem..];
                 // g) CC ← C_m | CP
-                var stealing: [BLK]u8 = undefined;
-                @memcpy(stealing[0..rem], src[len - rem .. len]);
                 @memcpy(stealing[rem..], last);
                 // h) P_{m-1} ← XTS-AES-blockDec(Key, CC, i, m-1)
                 self.decryptBlock(
@@ -304,6 +306,14 @@ test "AES128" {
         try testing.expectEqualSlices(u8, dst[0..len], res_encrypted[0..len]);
         try x.decrypt(res_decrypted[0..len], dst[0..len], iv[0..iv_len]);
         try testing.expectEqualSlices(u8, src[0..len], res_decrypted[0..len]);
+
+        // in place: dst and src are the same buffer
+        var buf: [1025]u8 = undefined;
+        @memcpy(buf[0..len], src[0..len]);
+        try x.encrypt(buf[0..len], buf[0..len], iv[0..iv_len]);
+        try testing.expectEqualSlices(u8, dst[0..len], buf[0..len]);
+        try x.decrypt(buf[0..len], buf[0..len], iv[0..iv_len]);
+        try testing.expectEqualSlices(u8, src[0..len], buf[0..len]);
     }
 }
 
