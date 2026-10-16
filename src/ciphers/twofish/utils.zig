@@ -61,7 +61,7 @@ pub fn gf256_mul(a: u8, b: u8, polynomial: u32) u8 {
     var a_: u8 = a;
     var B = [2]u32{ 0, b };
     const P = [2]u32{ 0, polynomial };
-    var result: u32 = undefined;
+    var result: u32 = 0;
 
     // branchless GF multiplier
     for (0..8) |_| {
@@ -71,6 +71,17 @@ pub fn gf256_mul(a: u8, b: u8, polynomial: u32) u8 {
     }
     result ^= B[a_ & 1];
     return @intCast(result & 0xff);
+}
+
+test "gf256_mul" {
+    const testing = std.testing;
+    try testing.expectEqual(@as(u8, 0x00), gf256_mul(0x00, 0x5B, POLYNOM_V));
+    try testing.expectEqual(@as(u8, 0x01), gf256_mul(0x01, 0x01, POLYNOM_V));
+    try testing.expectEqual(@as(u8, 0x5B), gf256_mul(0x01, 0x5B, POLYNOM_V));
+    // x * x^7 = x^8 = x^6 + x^5 + x^3 + 1 (mod v(x))
+    try testing.expectEqual(@as(u8, 0x69), gf256_mul(0x02, 0x80, POLYNOM_V));
+    // x * x^7 = x^8 = x^6 + x^3 + x^2 + 1 (mod w(x))
+    try testing.expectEqual(@as(u8, 0x4D), gf256_mul(0x02, 0x80, POLYNOM_W));
 }
 
 pub const MDS = [4][4]u8{
