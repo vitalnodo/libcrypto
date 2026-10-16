@@ -41,7 +41,12 @@ pub fn XTS(
             };
         }
 
-        fn initTweak(self: Self, IV: []const u8) [BLK]u8 {
+        /// Zero all key schedules.
+        pub fn deinit(self: *Self) void {
+            std.crypto.secureZero(u8, std.mem.asBytes(self));
+        }
+
+        fn initTweak(self: *const Self, IV: []const u8) [BLK]u8 {
             var tweak: [BLK]u8 = undefined;
             @memset(&tweak, 0);
             @memcpy(tweak[0..IV.len], IV);
@@ -51,7 +56,7 @@ pub fn XTS(
         }
 
         fn encryptBlock(
-            self: Self,
+            self: *const Self,
             dst: []u8,
             src: []const u8,
             tweak: []u8,
@@ -69,7 +74,7 @@ pub fn XTS(
         }
 
         fn decryptBlock(
-            self: Self,
+            self: *const Self,
             dst: []u8,
             src: []const u8,
             tweak: []u8,
@@ -87,7 +92,7 @@ pub fn XTS(
         }
 
         pub fn encrypt(
-            self: Self,
+            self: *const Self,
             dst: []u8,
             src: []const u8,
             IV: []const u8,
@@ -144,7 +149,7 @@ pub fn XTS(
         }
 
         pub fn decrypt(
-            self: Self,
+            self: *const Self,
             dst: []u8,
             src: []const u8,
             IV: []const u8,
@@ -317,6 +322,14 @@ test "AES128" {
         try x.decrypt(buf[0..len], buf[0..len], iv[0..iv_len]);
         try testing.expectEqualSlices(u8, src[0..len], buf[0..len]);
     }
+}
+
+test "deinit zeroes the key schedules" {
+    const X = XTS(aes.Aes256, aes.AesEncryptCtx, aes.AesDecryptCtx);
+    const key: [X.key_length]u8 = @splat(0x5c);
+    var x = try X.init(&key);
+    x.deinit();
+    try testing.expect(std.mem.allEqual(u8, std.mem.asBytes(&x), 0));
 }
 
 test "invalid lengths" {
