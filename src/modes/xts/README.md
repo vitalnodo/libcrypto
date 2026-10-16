@@ -1,6 +1,6 @@
 # XTS mode for Zig
 
-Currently the blockcipher must be AES (that has 128 bit block) with a key length of either 128 or 256 bits.
+Works with any 128-bit block cipher with a 128 or 256 bit key (AES, Twofish and Serpent are tested).
 
 ## XTS flow chart
 [![Xilinx Inc XTS flow chart](https://xilinx.github.io/Vitis_Libraries/security/2020.1/_images/XTS_working_mode.png)](https://xilinx.github.io/Vitis_Libraries/security/2020.1/guide_L1/internals/xts.html)
