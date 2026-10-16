@@ -177,7 +177,7 @@ pub const Serpent256 = struct {
 
 fn keySchedule(key: []const u8) RoundKeys {
     var res = blk: {
-        var k = [_]u32{0} ** 32;
+        var k: [32]u32 = @splat(0);
         var i: usize = 0;
         while (i <= key.len - 4) : (i += 4) {
             k[i / 4] = @as(u32, key[i]);
@@ -189,7 +189,7 @@ fn keySchedule(key: []const u8) RoundKeys {
             k[i / 4] = 1;
         }
 
-        var s = [_]u32{0} ** 132;
+        var s: [132]u32 = @splat(0);
         i = 8;
         while (i < 16) : (i += 1) {
             const x: u32 = k[i - 8] ^ k[i - 5] ^ k[i - 3] ^ k[i - 1] ^ PHI ^ @as(u32, @intCast(i - 8));

@@ -213,9 +213,9 @@ test {
         "message digest",
         "abcdefghijklmnopqrstuvwxyz",
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
-        "1234567890" ** 8,
+        "12345678901234567890123456789012345678901234567890123456789012345678901234567890",
         "abcdbcdecdefdefgefghfghighijhijk",
-        "a" ** 1000000,
+        &@as([1000000]u8, @splat('a')),
     };
     const output = &[_][]const u8{
         "19FA61D75522A4669B44E39C1D2E1726C530232130D407F89AFEE0964997F7A73E83BE698B288FEBCF88E3E03C4F0757EA8964E59B63D93708B138CC42A66EB3",
