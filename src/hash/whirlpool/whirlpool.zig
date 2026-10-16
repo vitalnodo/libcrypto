@@ -100,7 +100,7 @@ pub const Whirlpool = struct {
     total_len: u256 = 0,
     pub fn init(options: Options) Self {
         _ = options;
-        return .{ .s = mem.zeroes([8]u64) };
+        return .{ .s = @splat(0) };
     }
 
     pub fn hash(b: []const u8, out: *[digest_length]u8, options: Options) void {
