@@ -103,7 +103,12 @@ pub fn SerpentEncryptCtx(comptime Serpent: type) type {
             return .{ .round_keys = keySchedule(&key) };
         }
 
-        pub fn encrypt(ctx: Self, dst: *[16]u8, src: *const [16]u8) void {
+        /// Zero the key schedule.
+        pub fn deinit(self: *Self) void {
+            std.crypto.secureZero(u32, &self.round_keys);
+        }
+
+        pub fn encrypt(ctx: *const Self, dst: *[16]u8, src: *const [16]u8) void {
             var b: Block = Block.fromBytes(src);
             var i: usize = 0;
             while (i <= 30 * 4) {
@@ -136,7 +141,12 @@ pub fn SerpentDecryptCtx(comptime Serpent: type) type {
             return .{ .round_keys = keySchedule(&key) };
         }
 
-        pub fn decrypt(ctx: Self, dst: *[16]u8, src: *const [16]u8) void {
+        /// Zero the key schedule.
+        pub fn deinit(self: *Self) void {
+            std.crypto.secureZero(u32, &self.round_keys);
+        }
+
+        pub fn decrypt(ctx: *const Self, dst: *[16]u8, src: *const [16]u8) void {
             var b: Block = Block.fromBytes(src);
             b = b.xor(
                 Block{ .repr = ctx.round_keys[4 * 32 .. 4 * 32 + 4][0..4].* },
@@ -178,6 +188,7 @@ pub const Serpent256 = struct {
 fn keySchedule(key: []const u8) RoundKeys {
     var res = blk: {
         var k: [32]u32 = @splat(0);
+        defer std.crypto.secureZero(u32, &k);
         var i: usize = 0;
         while (i <= key.len - 4) : (i += 4) {
             k[i / 4] = @as(u32, key[i]);
@@ -190,6 +201,7 @@ fn keySchedule(key: []const u8) RoundKeys {
         }
 
         var s: [132]u32 = @splat(0);
+        defer std.crypto.secureZero(u32, &s);
         i = 8;
         while (i < 16) : (i += 1) {
             const x: u32 = k[i - 8] ^ k[i - 5] ^ k[i - 3] ^ k[i - 1] ^ PHI ^ @as(u32, @intCast(i - 8));
@@ -321,6 +333,16 @@ test "256-bit keys" {
         sd.decrypt(&plain_res, &v_cipher);
         try testing.expectEqualSlices(u8, &v_plain, &plain_res);
     }
+}
+
+test "deinit zeroes the key schedule" {
+    const key: [32]u8 = @splat(0x5c);
+    var e = SerpentEncryptCtx(Serpent256).init(key);
+    var d = SerpentDecryptCtx(Serpent256).init(key);
+    e.deinit();
+    d.deinit();
+    try testing.expect(std.mem.allEqual(u8, std.mem.asBytes(&e), 0));
+    try testing.expect(std.mem.allEqual(u8, std.mem.asBytes(&d), 0));
 }
 
 comptime {
